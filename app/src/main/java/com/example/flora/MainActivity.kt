@@ -7,7 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue // Import New
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.flora.ui.theme.FloraTheme
@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
             val currentRoute = navBackStackEntry?.destination?.route
 
             val showNavBar = listOf( // หน้าที่ต้องการ โชว์ Topbar and Bottombar
-                "MainScreen" ,
+                "MainScreen",
                 "ShopScreen",
                 "WhisListScreen",
                 "ProfileScreen"
@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     topBar = {
                          if(currentRoute in showNavBar){
-                             Topbar()
+                             Topbar(navController = navController)
                          }
                     },
                     bottomBar = {
@@ -60,11 +60,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-//@Preview(showBackground = true)
-//@Composable
-//fun GreetingPreview() {
-//    FloraTheme {
-//        Greeting("Android")
-//    }
-//}

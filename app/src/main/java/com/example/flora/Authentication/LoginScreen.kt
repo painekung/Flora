@@ -254,7 +254,7 @@ fun LoginScreen(modifier: Modifier = Modifier,navController: NavController){
                     )
                 )
                 .clickable {
-                    navController.navigate("MainScreen")
+                    navController.navigate("com/example/flora/ScreenMain/MainScreen")
                 },
             contentAlignment = Alignment.Center
         ) {

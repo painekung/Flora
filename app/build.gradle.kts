@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -65,6 +66,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.engage.core)
     implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -76,4 +78,35 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation("androidx.compose.foundation:foundation:1.5.0+")
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
+    implementation("androidx.media3:media3-common:1.3.1")
+
+    // --- [1] Firebase Section (ใช้ BoM เพื่อคุมเวอร์ชันให้เสถียร) ---
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")      // รวม KTX ไว้ในตัวแล้ว
+    implementation("com.google.firebase:firebase-firestore") // รวม KTX ไว้ในตัวแล้ว
+
+
+    // --- [2] Google Login & Credential Manager (ชุดใหม่ล่าสุด) ---
+    // จำเป็นสำหรับ GetSignInWithGoogleOption และ GoogleIdTokenCredential
+    implementation("androidx.credentials:credentials:1.2.2")
+    implementation("androidx.credentials:credentials-play-services-auth:1.2.2")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
+    // --- [3] Kotlin Coroutines & Lifecycle ---
+    // สำคัญมาก! ทำให้ใช้คำสั่ง .await() ใน AuthViewModel ได้
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
+
+    // --- [4] Jetpack Compose & Navigation ---
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.0")
+
+
+
+
 }

@@ -23,17 +23,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-
+import androidx.navigation.NavController
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Topbar(modifier: Modifier = Modifier){
+fun Topbar(modifier: Modifier = Modifier,navController: NavController){
     TopAppBar(
+
         modifier = modifier
             .height(110.dp), // ✅ เพิ่มความสูงตรงนี้,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color(0xFF6400B2),
             titleContentColor = Color(0xFFFEFFD3)
         ),
+
         title = {
             Row( //  Row Main
                 modifier = Modifier
@@ -74,7 +76,9 @@ fun Topbar(modifier: Modifier = Modifier){
                         horizontalArrangement = Arrangement.spacedBy(20.dp), // 👈 ระยะห่าง
                     ) {
                         IconButton(
-                            onClick = {},
+                            onClick = {
+                                navController.navigate(("cart"))
+                            },
                             modifier = Modifier
                                 .size(40.dp)
                                 .background(

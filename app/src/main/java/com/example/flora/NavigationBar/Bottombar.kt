@@ -16,9 +16,6 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -47,11 +44,6 @@ fun Bottombar(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    //var selectedItem by remember { mutableStateOf(0) } // ตัวแปร เก็บค่า การเปลี่ยน หน้า Bottombar
-    //selectedItem = index
-
-
-
     val icons_title_bar = listOf(
         Icons.Default.Home,
         Icons.Default.Shop,
@@ -61,6 +53,7 @@ fun Bottombar(
     val title_bar = listOf("Home","Shop","WhisList","Profile")
 
     NavigationBar(
+        containerColor = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
             .height(110.dp)
@@ -86,7 +79,7 @@ fun Bottombar(
                     topEnd = 20.dp
                 )
             ),
-        containerColor = Color.White,
+
         tonalElevation = 0.dp // ปิด elevation ของ NavigationBar
     ) {
         icons_title_bar.forEachIndexed { index,icon ->
@@ -102,15 +95,14 @@ fun Bottombar(
             NavigationBarItem(
                 selected = currentRoute == route,
                 onClick = {
-                    navController.navigate(route){ // วิธีนี้ได้ผลดี
+                    navController.navigate(route){ 
                         popUpTo(navController.graph.startDestinationId){
                             saveState = true
                         }
                         launchSingleTop = true
                         restoreState = true
                     }
-
-                          },
+                },
                 icon = {
                     Icon(
                     icon,
@@ -120,9 +112,10 @@ fun Bottombar(
                     )},
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = Color(0xFF6400B2),
-                    unselectedIconColor = Color.Gray,
+                    unselectedIconColor =Color(0xFF8E889D),
                     selectedTextColor = Color(0xFF6400B2),
-                    unselectedTextColor = Color.Gray
+                    unselectedTextColor = Color(0xFF8E889D),
+                    indicatorColor = Color.Transparent
                 ),
                 label = {
                     Text(title_bar[index],
@@ -131,11 +124,4 @@ fun Bottombar(
             )
         }
     }
-
-
-
-
-
-
-
 }

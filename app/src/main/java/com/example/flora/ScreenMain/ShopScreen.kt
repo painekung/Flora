@@ -262,21 +262,24 @@ fun ShopScreen(modifier: Modifier = Modifier,navController: NavController){
 
             items(items) { item ->
 
-                Box(
+                Column (
                     modifier = Modifier
-                        .width(120.dp)
-                        .height(150.dp)
+                        .height(117.dp)
                         .background(
-                            Color(0xFF6400B2),
+                            Color(0xFFF3F1F6),
                             shape = RoundedCornerShape(16.dp)
-                        )
-                        ,
-                    contentAlignment = Alignment.Center
+                        ).padding(15.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = item,
-                        color = Color.White
+                    Image(
+                        painter = painterResource(R.drawable.momochan),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(62.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop // กัน ขอบขาว
                     )
+                    Text("Momo Shop",color = Color(0xFF6E6A7C), fontWeight = FontWeight.Medium)
                 }
             }
         }
