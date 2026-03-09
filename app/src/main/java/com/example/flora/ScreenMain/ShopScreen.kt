@@ -4,18 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
@@ -24,18 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,306 +27,308 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.flora.Firebase.FlowersViewModel
+import com.example.flora.Firebase.StoreViewModel
 import com.example.flora.R
+import com.example.flora.ScreenMain.ShopComponents.FlowerCard
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
-@Composable
-fun ShopScreen(modifier: Modifier = Modifier,navController: NavController){
+// ─────────────────────────────────────────
+// แปลง hex → ชื่อสีไทย
+// ─────────────────────────────────────────
 
-    // slide banner
+
+fun hexToColorName(hex: String): String {
+    val clean = hex.trim().uppercase().replace("#", "")
+    return when (clean) {
+        "EF5350" -> "สีแดง"
+        "FF006E" -> "สีชมพู"
+        "FFB74D" -> "สีส้ม"
+        "FDD835" -> "สีเหลือง"
+        "BBDEFB" -> "สีฟ้า"
+        "AB47BC" -> "สีม่วง"
+        "FAF0E6"  -> "สีขาว"
+        "1E88E5" -> "สีน้ำเงิน"
+
+
+        else -> "สีอื่นๆ"
+    }
+}
+
+// ── รายการสีทั้งหมดที่มีในระบบ (แสดงเสมอ ไม่ขึ้นกับ DB) ──
+val ALL_COLOR_OPTIONS = listOf(
+    "ทั้งหมด",
+    "สีแดง",
+    "สีชมพู",
+    "สีส้ม",
+    "สีเหลือง",
+    "สีเขียว",
+    "สีฟ้า",
+    "สีม่วง",
+    "สีขาว",
+    "น้ำเงิน"
+)
+
+@Composable
+fun ShopScreen(
+    modifier        : Modifier = Modifier,
+    navController   : NavController,
+    flowerViewModel : FlowersViewModel,
+    storeViewModel  : StoreViewModel,
+) {
     val banner_slide = listOf(
         R.drawable.banner1,
         R.drawable.rose,
         R.drawable.daisy,
         R.drawable.pinkflower
     )
-    val realSize = banner_slide.size // จำนวนรูป banner
-    val startPage = Int.MAX_VALUE / 2 // จุดเริ่มต้น
+    val realSize   = banner_slide.size
     val pagerState = rememberPagerState(
-        initialPage = startPage,
-        pageCount = { Int.MAX_VALUE }
-    ) // เก็บหน้าปัจจุบัน ควบคุมการ animate
+        initialPage = Int.MAX_VALUE / 2,
+        pageCount   = { Int.MAX_VALUE }
+    )
 
-    val coroutineScope = rememberCoroutineScope()
-    // End slide banner
+    var searchText    by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf("ทั้งหมด") }
+    var selectedStore by remember { mutableStateOf<String?>(null) }
 
-    var SearchText by remember { mutableStateOf("") }
+    val flowersList by flowerViewModel.allFlowers.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
+    // ── รายการร้านค้า distinct จาก flower.store ──
+    val storeList = remember(flowersList) {
+        flowersList.map { it.store }.distinctBy { it.storeID }
+    }
+
+    // ── Filter ──
+    val filteredList = flowersList.filter { flower ->
+        val storeMatch = selectedStore == null || flower.store.storeID == selectedStore
+        val colorMatch = selectedColor == "ทั้งหมด" || hexToColorName(flower.categoryColor) == selectedColor
+        val nameMatch  = flower.name.contains(searchText, ignoreCase = true)
+        storeMatch && colorMatch && nameMatch
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        flowerViewModel.fetchAllFlowers()
+        storeViewModel.fetchAllStores()
+    }
+
+    LazyColumn(
+        modifier       = Modifier.fillMaxSize().background(Color(0xFFF9F7FF)),
+        contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(25.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                //.padding(16.dp)
-                .height(65.dp), // ขนาด Main
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        // ── 1. Search Bar ──
+        item {
+            Spacer(modifier = Modifier.height(25.dp))
             Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(horizontal = 0.dp)
-                    .background(
-                        Color(0xFFF1F1F1),
-                        shape = RoundedCornerShape(10.dp)
-                    ),
-                verticalAlignment = Alignment.CenterVertically
+                modifier              = Modifier.fillMaxWidth().height(65.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                TextField(
-                    value = SearchText,
-                    onValueChange = { SearchText = it },
-                    placeholder = { Text("Search") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(5.dp),
-                    leadingIcon = {
-                        Icon(Icons.Default.Search,
-                            contentDescription = null,
-                            tint = Color(0xFF6400B2),
-                            modifier = Modifier
-                                .size(30.dp))
-                    },
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent,
-                        errorContainerColor = Color.Transparent,
-
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent,
-                        errorIndicatorColor = Color.Transparent
+                Row(
+                    modifier          = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(Color.Transparent, shape = RoundedCornerShape(10.dp)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        value         = searchText,
+                        onValueChange = { searchText = it },
+                        placeholder   = { Text("ค้นหาดอกไม้ที่ต้องการ") },
+                        shape         = RoundedCornerShape(12.dp),
+                        modifier      = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF9F7FF))
+                            .border(1.dp, Color(0x336400B2), RoundedCornerShape(12.dp)),
+                        leadingIcon   = {
+                            Icon(Icons.Default.Search, null, tint = Color(0xFF6400B2), modifier = Modifier.size(30.dp))
+                        },
+                        singleLine    = true,
+                        colors        = TextFieldDefaults.colors(
+                            focusedContainerColor   = Color(0xFFF9F7FF),
+                            unfocusedContainerColor = Color(0xFFF9F7FF),
+                            focusedIndicatorColor   = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor  = Color.Transparent,
+                            errorIndicatorColor     = Color.Transparent
+                        )
                     )
-                )
-
+                }
+                Spacer(modifier = Modifier.width(15.dp))
+                Box(
+                    modifier         = Modifier
+                        .size(60.dp, 65.dp)
+                        .background(Color(0xFF6400B2), shape = RoundedCornerShape(10.dp))
+                        .clickable { },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painterResource(id = R.drawable.page_info), null, tint = Color.White, modifier = Modifier.size(30.dp))
+                }
             }
-
-            Spacer(modifier = Modifier.width(35.dp))
-
-            Row(
-                modifier = Modifier
-                    .width(60.dp)
-                    .fillMaxHeight()
-                    .background(
-                        Color(0xFF6400B2),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .clickable{
-
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.page_info),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(30.dp)
-                )
-            }
-        } // Row 1 in Column Main
-
-        Spacer(modifier = Modifier.height(25.dp))
-
-
-        // Auto Slide
-        LaunchedEffect(Unit) {
-            while (true){
-                delay(3000) // delay 3 s
-                pagerState.animateScrollToPage(pagerState.currentPage + 1)
-            }
+            Spacer(modifier = Modifier.height(25.dp))
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            ) { page ->
-                val realPage = page % realSize
-                Card(
-                    modifier = Modifier
-                        //.padding(horizontal = 16.dp)
-                        .fillMaxSize()
-                        .graphicsLayer{
-                            val pageOffset = (
-                                    (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                                    ).absoluteValue
-                            val scale = 0.85f + (1f - pageOffset.coerceIn(0f,1f)) * 0.15f
-
+        // ── 2. Banner ──
+        item {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                HorizontalPager(
+                    state    = pagerState,
+                    modifier = Modifier.fillMaxWidth().height(200.dp)
+                ) { page ->
+                    val realPage = page % realSize
+                    Card(
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+                            val scale = 0.85f + (1f - pageOffset.coerceIn(0f, 1f)) * 0.15f
                             scaleX = scale
                             scaleY = scale
-
                         },
-                    shape = RoundedCornerShape(15.dp)
-                ) {
-                    Image(
-                        painter = painterResource(banner_slide[realPage]),
-                        contentDescription = null,
+                        shape = RoundedCornerShape(15.dp)
+                    ) {
+                        Image(
+                            painter      = painterResource(banner_slide[realPage]),
+                            contentDescription = null,
+                            modifier     = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(15.dp))
+                Row(horizontalArrangement = Arrangement.Center) {
+                    val currentRealPage = pagerState.currentPage % realSize
+                    repeat(realSize) { index ->
+                        Box(
+                            modifier = Modifier
+                                .padding(4.dp).size(12.dp).clip(CircleShape)
+                                .background(if (currentRealPage == index) Color(0xFF7B2FF7) else Color.LightGray)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        // ── 3. Store List ──
+        item {
+            Text("ร้านค้า", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(15.dp))
+            LazyRow(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(storeList) { store ->
+                    val isSelected = selectedStore == store.storeID
+                    Column(
                         modifier = Modifier
-                            .fillMaxSize(),
-                        contentScale = ContentScale.Crop // กัน ขอบขาว
+                            .height(117.dp)
+                            .background(
+                                if (isSelected) Color(0xFFEDE7F6) else Color(0xFFF3F1F6),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .border(
+                                width = if (isSelected) 2.dp else 0.dp,
+                                color = if (isSelected) Color(0xFF6400B2) else Color.Transparent,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable {
+                                selectedStore = if (selectedStore == store.storeID) null else store.storeID
+                            }
+                            .padding(15.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier         = Modifier.size(62.dp).clip(CircleShape).background(Color(0xFFD1C4E9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text       = store.storeName.take(1),
+                                fontSize   = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = Color(0xFF6400B2)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(store.storeName, color = Color(0xFF6E6A7C), fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        // ── 4. Color Filter (แสดงทุกสีเสมอ) ──
+        item {
+            Text("เลือกสีดอกไม้ที่ต้องการ", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(15.dp))
+            LazyRow(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(ALL_COLOR_OPTIONS) { colorName ->
+                    val isSelected = colorName == selectedColor
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (isSelected) Color(0xFF6400B2) else Color.Transparent,
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .border(2.dp, if (isSelected) Color(0xFF6400B2) else Color(0xFFD4CCE3), RoundedCornerShape(20.dp))
+                            .clickable { selectedColor = colorName }
+                            .padding(horizontal = 16.dp, vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(colorName, fontSize = 16.sp, color = if (isSelected) Color.White else Color.Black)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        // ── 5. Grid ดอกไม้ (ว่างเปล่าถ้าไม่มีสีนั้น) ──
+        if (filteredList.isEmpty()) {
+            item {
+                Box(
+                    modifier         = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "ไม่มีดอกไม้${if (selectedColor != "ทั้งหมด") "$selectedColor" else ""}ในขณะนี้",
+                        color    = Color.Gray,
+                        fontSize = 16.sp
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(15.dp))
-            // 🔵 Dot Indicator + Clickable
-            Row(
-                horizontalArrangement = Arrangement.Center
-            ) {
-                val currentRealPage = pagerState.currentPage % realSize
-
-                repeat(realSize){ index ->
-                    val isSelected = currentRealPage == index
-
-                    Box(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .size(if (isSelected) 12.dp else 12.dp) // อันเก่า size(if (isSelected) 12.dp else 8.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected)
-                                    Color(0xFF7B2FF7)
-                                else
-                                    Color.LightGray
-                            )
-                            .clickable{
-                                coroutineScope.launch {
-                                    val targetPage = pagerState.currentPage - (currentRealPage - index)
-                                    pagerState.animateScrollToPage(targetPage)
-                                }
-                            }
-                    ){
-
-                    } // End Box 1
-
-                }
-
-            } // End Row
-        } // End Column Slide
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        val items = listOf(
-            "Box1", "Box2", "Box3",
-            "Box4", "Box5", "Box6"
-        )
-        val colors_flower = listOf(
-            "ทั้งหมด" ,"สีฟ้า" , "สีเหลือง",
-            "สีม่วง" , "สีแดง"
-        )
-
-        var selectedColor by remember { mutableStateOf("ทั้งหมด") }
-
-
-        // Selected Store
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 0.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-
-            items(items) { item ->
-
-                Column (
-                    modifier = Modifier
-                        .height(117.dp)
-                        .background(
-                            Color(0xFFF3F1F6),
-                            shape = RoundedCornerShape(16.dp)
-                        ).padding(15.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+        } else {
+            val chunkedFlowers = filteredList.chunked(2)
+            items(chunkedFlowers) { rowItems ->
+                Row(
+                    modifier              = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.momochan),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(62.dp).clip(CircleShape),
-                        contentScale = ContentScale.Crop // กัน ขอบขาว
-                    )
-                    Text("Momo Shop",color = Color(0xFF6E6A7C), fontWeight = FontWeight.Medium)
+                    for (flower in rowItems) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            FlowerCard(
+                                flower  = flower,
+                                onClick = {
+                                    flowerViewModel.selectFlower(flower)
+                                    navController.navigate("flower_detail")
+                                }
+                            )
+                        }
+                    }
+                    if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = "เลือกสีดอกไม้ที่ต้องการ",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 0.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(colors_flower){ item ->
-
-                val isSelected = item == selectedColor
-
-
-                Box(
-                    modifier = Modifier
-                        .width(80.dp)
-                        .height(40.dp)
-                        .background(
-                            color = if(isSelected)
-                                Color(0xFF6400B2)
-                            else
-                                Color.White,
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .border(
-                            width = 2.dp,
-                            color = if(isSelected)
-                                Color(0xFF6400B2)
-                            else
-                                Color(0xFFD4CCE3),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .clickable{
-                            selectedColor = item
-                        },
-                    contentAlignment = Alignment.Center,
-                ){
-                    Text(item,
-                        color = if(isSelected)
-                            Color.White
-                        else
-                            Color.Black
-
-                    )
-
-                }
-
-            }
-        } // End selected Colors
-
-
-
-
-
-
-    } // Column Main
+        item { Spacer(modifier = Modifier.height(80.dp)) }
+    }
 }
-

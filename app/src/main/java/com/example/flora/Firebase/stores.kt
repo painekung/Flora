@@ -1,12 +1,10 @@
-package com.example.flora.Firebase//package com.example.flora.Firebase
+package com.example.flora.Firebase
 
-
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.flora.models.Store
 import com.google.firebase.Firebase
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -16,190 +14,319 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-
-// 1. ข้อมูลผู้ใช้
-data class User(
-    val userID: String = "",
-    val name: String = "",
-    val email: String = "",
-    val role: String = "customer" // "customer" หรือ "store_owner"
+// ── Data Class: ข้อมูล User ที่ฝังอยู่ใน Store ──
+data class UserEmbedded(
+    val userID     : String = "",
+    val name       : String = "",
+    val email      : String = "",
+    val username   : String = "",
+    val phoneNumber: String = "",
+    val sex        : String = ""
 )
 
-// 2. ข้อมูลร้านค้า (เชื่อมกับ User ด้วย userId)
+// ── Data Class: ร้านค้า ที่มี field "User" เป็น Map ──
 data class Stores(
-    val storeID: String = "",
-    val userID: String = "", // อ้างอิงถึง User.userId
-    val storeName: String = "",
-    val location: String = "",
-    val description: String = ""
+    val storeID    : String       = "",
+    val storeName  : String       = "",
+    val location   : String       = "",
+    val description: String       = "",
+    val createAt   : Timestamp? = null,
+    val user       : UserEmbedded = UserEmbedded()
 )
 
+// ── UI State สำหรับ Store ──
+sealed class StoreState {
+    object Idle    : StoreState()
+    object Loading : StoreState()
+    object Success : StoreState()
+    data class Error(val message: String) : StoreState()
+}
+
+// ── DataSource ──
 class FirebaseManagementStore {
-    private val collection = Firebase.firestore.collection("Stores")
+    private val storeCollection = Firebase.firestore.collection("Stores")
+    private val userCollection  = Firebase.firestore.collection("Users")
 
-    // Insert: ใช้ set(store) พร้อมระบุ ID ของตัวเอง หรือใช้ add() ก็ได้
-    suspend fun insert(store: Stores) {
-        // แนะนำให้ใช้ storeID ที่เรากำหนดเองเป็น Document ID ไปเลยเพื่อการจัดการที่ง่าย
-        collection.document(store.storeID).set(store).await()
+    // ── Insert Store พร้อม nested User map ──
+    suspend fun insert(store: Stores): Result<Unit> {
+        return try {
+            storeCollection.document(store.storeID).set(store).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // Update: แก้ไขเฉพาะฟิลด์ที่ต้องการ
-    suspend fun update(store: Stores) {
-        collection.document(store.storeID).update(
-            mapOf(
-                "storeName" to store.storeName,
-                "location" to store.location,
-            )
-        ).await()
+    // ── Update Store ──
+    suspend fun update(store: Stores): Result<Unit> {
+        return try {
+            storeCollection.document(store.storeID).update(
+                mapOf(
+                    "storeName"   to store.storeName,
+                    "location"    to store.location,
+                    "description" to store.description
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // Delete
-    suspend fun delete(storeID: String) {
-        collection.document(storeID).delete().await()
+    // ── Delete Store ──
+    suspend fun delete(storeID: String): Result<Unit> {
+        return try {
+            storeCollection.document(storeID).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
+    // ── ดึง userID จาก email ──
     suspend fun getUserIdByEmail(email: String): String? {
-        val db = Firebase.firestore
-        val snapshot = db.collection("Users")
-            .whereEqualTo("email", email)
-            .limit(1)
-            .get()
-            .await()
-
-        // ✅ เปลี่ยนจาก .id → .getString("userID")
-        return snapshot.documents.firstOrNull()?.getString("userID")
+        return try {
+            val snapshot = userCollection
+                .whereEqualTo("email", email)
+                .limit(1)
+                .get()
+                .await()
+            snapshot.documents.firstOrNull()?.getString("userID")
+        } catch (e: Exception) {
+            null
+        }
     }
 
-    suspend fun getAllStores(): List<Stores> {
-        val snapshot = collection.get().await()
-        return snapshot.toObjects(Stores::class.java)
+    // ── ดึงข้อมูล User เต็ม จาก email ──
+    suspend fun getUserByEmail(email: String): Users? {
+        return try {
+            val snapshot = userCollection
+                .whereEqualTo("email", email)
+                .limit(1)
+                .get()
+                .await()
+            snapshot.toObjects(Users::class.java).firstOrNull()
+        } catch (e: Exception) {
+            null
+        }
     }
 
-    // Get Store By User: ดึงข้อมูลแบบ Real-time Flow
+    // ── อัปเดต role ของ User เป็น store_owner ──
+    suspend fun updateUserRole(userID: String, role: String): Result<Unit> {
+        return try {
+            val snapshot = userCollection
+                .whereEqualTo("userID", userID)
+                .limit(1)
+                .get()
+                .await()
+            val docID = snapshot.documents.firstOrNull()?.id
+                ?: return Result.failure(Exception("ไม่พบ User"))
+            userCollection.document(docID)
+                .update("role", role)
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ── ดึงร้านค้าตาม userID แบบ Real-time ──
     fun getStoreByUser(userId: String): Flow<List<Stores>> = callbackFlow {
-        val listenerRegistration = collection
-            .whereEqualTo("userID", userId)
+        val listener = storeCollection
+            .whereEqualTo("user.userID", userId)
             .limit(1)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
+                if (error != null) { close(error); return@addSnapshotListener }
                 if (snapshot != null) {
                     val stores = snapshot.toObjects(Stores::class.java)
                     trySend(stores)
                 }
             }
-        awaitClose { listenerRegistration.remove() }
+        awaitClose { listener.remove() }
+    }
+
+    // ── ดึงร้านค้าทั้งหมด ──
+    suspend fun getAllStores(): List<Stores> {
+        return try {
+            val snapshot = storeCollection.get().await()
+            snapshot.toObjects(Stores::class.java)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    // ── [NEW] อัปเดต embedded user ใน Store document ──
+    suspend fun updateEmbeddedUser(userID: String, updatedUser: UserEmbedded): Result<Unit> {
+        return try {
+            // ค้นหา Store ที่มี user.userID ตรงกัน
+            val snapshot = storeCollection
+                .whereEqualTo("user.userID", userID)
+                .get()
+                .await()
+
+            if (snapshot.isEmpty) {
+                // ไม่มีร้านค้า → ไม่ต้อง sync ก็ได้ (ถือว่าสำเร็จ)
+                return Result.success(Unit)
+            }
+
+            // Batch update ทุก store ที่ user นี้เป็นเจ้าของ (ปกติมีแค่ 1 ร้าน)
+            val batch = Firebase.firestore.batch()
+            snapshot.documents.forEach { doc ->
+                batch.update(
+                    doc.reference,
+                    mapOf(
+                        "user.name"        to updatedUser.name,
+                        "user.username"    to updatedUser.username,
+                        "user.phoneNumber" to updatedUser.phoneNumber,
+                        "user.sex"         to updatedUser.sex
+                    )
+                )
+            }
+            batch.commit().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
 
+// ── Repository ──
 class StoreRepository(
     private val dataSource: FirebaseManagementStore = FirebaseManagementStore()
 ) {
-    // ฟังก์ชันดึงข้อมูลร้านค้าตาม User ID
-    fun getStore(userId: String) = dataSource.getStoreByUser(userId)
-
-    suspend fun getUserByEmail(email: String) = dataSource.getUserIdByEmail(email)
-
-    suspend fun getAllStores() = dataSource.getAllStores()
-
-    suspend fun insert(store: Stores) {
-        dataSource.insert(store)
-    }
-
-    suspend fun update(store: Stores) {
-        dataSource.update(store)
-    }
-
-    suspend fun delete(storeID: String) {
-        dataSource.delete(storeID)
-    }
+    fun getStore(userId: String)                    = dataSource.getStoreByUser(userId)
+    suspend fun getUserByEmail(email: String)       = dataSource.getUserByEmail(email)
+    suspend fun getUserIdByEmail(email: String)     = dataSource.getUserIdByEmail(email)
+    suspend fun getAllStores()                       = dataSource.getAllStores()
+    suspend fun insert(store: Stores)               = dataSource.insert(store)
+    suspend fun update(store: Stores)               = dataSource.update(store)
+    suspend fun delete(storeID: String)             = dataSource.delete(storeID)
+    suspend fun updateUserRole(userID: String, role: String) = dataSource.updateUserRole(userID, role)
+    // ── [NEW] ──
+    suspend fun updateEmbeddedUser(userID: String, updatedUser: UserEmbedded) =
+        dataSource.updateEmbeddedUser(userID, updatedUser)
 }
 
+// ── ViewModel ──
 class StoreViewModel(
     private val repository: StoreRepository = StoreRepository()
 ) : ViewModel() {
 
-    init {
-        android.util.Log.d("StoreViewModel", "ViewModel created successfully")
-    }
-
     companion object {
         val Factory: ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return StoreViewModel() as T
-            }
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = StoreViewModel() as T
         }
     }
 
-    // เก็บข้อมูลร้านค้าที่จะโชว์ใน UI
     private val _currentStore = MutableStateFlow<List<Stores>>(emptyList())
-    private  val _allStore = MutableStateFlow<List<Store>>(emptyList())
     val currentStore = _currentStore.asStateFlow()
 
+    private val _storeState = MutableStateFlow<StoreState>(StoreState.Idle)
+    val storeState = _storeState.asStateFlow()
 
+    fun resetStoreState() { _storeState.value = StoreState.Idle }
 
+    // ── ดึงร้านค้าของ User จาก email ──
     fun fetchStoreByEmail(email: String) {
         viewModelScope.launch {
-            // 1. หา userID จาก email ก่อน
-            // 1. หา userID
-            val userId = repository.getUserByEmail(email)
-            android.util.Log.d("StoreDebug", "หา UserID จาก $email เจอเป็น: $userId")
+            try {
+                val userId = repository.getUserIdByEmail(email)
+                android.util.Log.d("StoreVM", "fetchStoreByEmail: email=$email, userId=$userId")
 
-
-            if (userId != null) {
-                // 2. ดึงข้อมูลร้าน
-                repository.getStore(userId).collect { storeList ->
-                    android.util.Log.d("StoreDebug", "จำนวนร้านที่เจอสำหรับ $userId: ${storeList.toString()}")
-                    _currentStore.value = storeList
+                if (userId != null) {
+                    repository.getStore(userId).collect { stores ->
+                        android.util.Log.d("StoreVM", "stores found: ${stores.size}")
+                        _currentStore.value = stores
+                    }
+                } else {
+                    android.util.Log.w("StoreVM", "userId is null for email=$email")
+                    _currentStore.value = emptyList()
                 }
-            } else {
-                android.util.Log.e("StoreDebug", "ไม่พบ User ที่ใช้อีเมลนี้ในระบบ")
+            } catch (e: Exception) {
+                android.util.Log.e("StoreVM", "fetchStoreByEmail error: ${e.message}", e)
                 _currentStore.value = emptyList()
             }
         }
     }
 
+    // ── ดึงร้านค้าทั้งหมด ──
     fun fetchAllStores() {
         viewModelScope.launch {
-            val stores = repository.getAllStores()
-            _currentStore.value = stores
-            android.util.Log.d("fff", "จำนวนร้านที่เจอสำหรับ ${_currentStore.value.toString()}")
-
+            _currentStore.value = repository.getAllStores()
         }
     }
 
-    // ฟังก์ชันสร้างร้านค้าใหม่
-    fun insertStore(storeID: String, userID: String, storeName: String, location: String) {
+    // ── สมัครร้านค้าใหม่ พร้อม embed User และอัปเดต role ──
+    fun registerStore(
+        email      : String,
+        storeName  : String,
+        location   : String,
+        description: String
+    ) {
         viewModelScope.launch {
-            repository.insert(
-                Stores(
-                    storeID = storeID,
-                    userID = userID,
-                    storeName = storeName,
-                    location = location
+            _storeState.value = StoreState.Loading
+            try {
+                val user = repository.getUserByEmail(email)
+                    ?: run {
+                        _storeState.value = StoreState.Error("ไม่พบข้อมูลผู้ใช้")
+                        return@launch
+                    }
+
+                val storeID = com.google.firebase.Firebase.firestore
+                    .collection("Stores").document().id
+
+                val embeddedUser = UserEmbedded(
+                    userID      = user.userID,
+                    name        = user.name,
+                    email       = user.email,
+                    username    = user.username,
+                    phoneNumber = user.phoneNumber,
+                    sex         = user.sex
                 )
-            )
+
+                val newStore = Stores(
+                    storeID     = storeID,
+                    storeName   = storeName,
+                    location    = location,
+                    description = description,
+                    user        = embeddedUser,
+                    createAt    = Timestamp.now()
+                )
+
+                repository.insert(newStore)
+                    .onFailure { e ->
+                        _storeState.value = StoreState.Error(e.message ?: "บันทึกร้านไม่สำเร็จ")
+                        return@launch
+                    }
+
+                repository.updateUserRole(user.userID, "store_owner")
+                _storeState.value = StoreState.Success
+
+            } catch (e: Exception) {
+                _storeState.value = StoreState.Error(e.message ?: "เกิดข้อผิดพลาด")
+            }
         }
     }
 
-    // ฟังก์ชันอัปเดตข้อมูลร้าน
+    // ── Update Store ──
     fun updateStore(store: Stores) {
-        viewModelScope.launch {
-            repository.update(store)
-        }
+        viewModelScope.launch { repository.update(store) }
     }
 
-    // ฟังก์ชันลบร้าน
+    // ── Delete Store ──
     fun deleteStore(storeID: String) {
-        viewModelScope.launch {
-            repository.delete(storeID)
-        }
+        viewModelScope.launch { repository.delete(storeID) }
     }
 
-    // วิธีการดึงข้อมูลมาโชว์ใน UI (ใช้ร่วมกับ collectAsState ใน Compose)
-    fun getMyStore(userId: String): Flow<List<Stores>> {
-        return repository.getStore(userId)
+    fun getMyStore(userId: String): Flow<List<Stores>> = repository.getStore(userId)
+
+    // ── [NEW] sync embedded user ใน Store ──
+    fun syncEmbeddedUser(userID: String, updatedUser: UserEmbedded) {
+        viewModelScope.launch {
+            repository.updateEmbeddedUser(userID, updatedUser)
+                .onFailure { e ->
+                    android.util.Log.e("StoreVM", "syncEmbeddedUser error: ${e.message}", e)
+                }
+        }
     }
 }

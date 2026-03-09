@@ -1,6 +1,7 @@
-package com.example.flora.Authentication//package com.example.flora.Authentication
+package com.example.flora.Authentication
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -15,6 +16,7 @@ import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,22 +35,23 @@ class AuthViewModel : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
-
-
     sealed class AuthState {
         object Idle : AuthState()
         object Loading : AuthState()
         object Success : AuthState()
         object ResetPasswordSent : AuthState()
+        object Unauthenticated : AuthState()
         data class Error(val message: String) : AuthState()
     }
 
     fun loginWithGoogle(context: Context) {
+        Log.d("Test", context.toString())
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
                 val credentialManager = CredentialManager.create(context)
 
+                // ตรวจสอบว่าใช้ WEB Client ID จาก Firebase Console (Authentication > Sign-in method > Google)
                 val signInWithGoogleOption = GetSignInWithGoogleOption
                     .Builder("768404121936-9u1sqsokmurrdabm4qjrllqntqfgouc7.apps.googleusercontent.com")
                     .build()
@@ -81,13 +84,31 @@ class AuthViewModel : ViewModel() {
 
 
     //------------------ ลงทะเบียนใช้งาน ------------------
-    fun register(email: String, password: String) {
+    fun register(email: String, password: String, name: String = "", phone: String = "",sex: String="") {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                auth.createUserWithEmailAndPassword(email, password).await()
+                // 1. สร้าง account ใน Firebase Auth
+                val result = auth.createUserWithEmailAndPassword(email, password).await()
+                val uid = result.user?.uid ?: return@launch
+
+                // 2. Save ข้อมูลลง Firestore Users collection (ตรงกับ data class Users)
+                Firebase.firestore
+                    .collection("Users")
+                    .document(uid)
+                    .set(mapOf(
+                        "userID"      to uid,
+                        "email"       to email,
+                        "name"        to name,
+                        "username"    to name,
+                        "phoneNumber" to phone,
+                        "role"        to "customer",
+                        "sex"         to sex
+                    )).await()
+
                 _authState.value = AuthState.Success
             } catch (e: Exception) {
+                Log.d("save", e.message.toString())
                 _authState.value = AuthState.Error(e.message ?: "เกิดข้อผิดพลาด")
             }
         }
@@ -95,6 +116,7 @@ class AuthViewModel : ViewModel() {
 
     //------------------ รีเซตรหัสผ่าน ------------------
     fun resetPassword(email: String) {
+        Log.d("Test Email",email)
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
@@ -128,8 +150,9 @@ class AuthViewModel : ViewModel() {
 
     //------------------ ออกจากระบบ ------------------
     fun logout() {
-//        auth.signOut()
-        _authState.value = AuthState.Idle
+        auth.signOut()
+        _authState.value = AuthState.Unauthenticated
+        //_authState.value = AuthState.Idle
     }
 
     fun resetState() {

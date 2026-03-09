@@ -108,7 +108,7 @@ fun Bottombar(
                     icon,
                         contentDescription = title_bar[index],
                         modifier = Modifier
-                            .size(35.dp)
+                            .size(25.dp)
                     )},
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = Color(0xFF6400B2),
@@ -119,7 +119,7 @@ fun Bottombar(
                 ),
                 label = {
                     Text(title_bar[index],
-                    fontSize = 17.sp)
+                    fontSize = 12.sp)
                 }
             )
         }

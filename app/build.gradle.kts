@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+
 }
 
 android {
@@ -61,6 +62,9 @@ dependencies {
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+
     // Icons
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.compose.foundation)
@@ -77,10 +81,14 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    implementation("androidx.compose.foundation:foundation:1.5.0+")
+    implementation("io.coil-kt:coil-compose:2.x.x")
+
+    implementation("androidx.compose.foundation:foundation:1.7.0")
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-common:1.3.1")
+
+
 
     // --- [1] Firebase Section (ใช้ BoM เพื่อคุมเวอร์ชันให้เสถียร) ---
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
