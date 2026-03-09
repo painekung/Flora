@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "768404121936",
+    "project_id": "app-mobile-e59e8",
+    "storage_bucket": "app-mobile-e59e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:768404121936:android:cc38b3441ecaac7a5da455",
+        "android_client_info": {
+          "package_name": "com.example.flora"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "768404121936-en8o59ht37p0dgmofrtugfo1m43p25r4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZ9JMjVSycHqhFsi9QjQlgr-xyZLQsJQg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "768404121936-9u1sqsokmurrdabm4qjrllqntqfgouc7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
